@@ -16,7 +16,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -77,16 +86,33 @@ fun MainScreen(
     Scaffold(
         topBar = {
             PocketLedgerHeader(
-                selectedTab = selectedTab,
-                onTabSelect = { selectedTab = it },
-                onAddEntry = { showAddEntry = true },
                 onOpenLlm = { showLlmDialog = true },
                 llmState = llmState
             )
         },
         bottomBar = {
-            PrivacyFooter()
+            PocketLedgerBottomBar(
+                selectedTab = selectedTab,
+                onTabSelect = { selectedTab = it }
+            )
         },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    if (selectedTab != 0) selectedTab = 0
+                    showAddEntry = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add entry"
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End,
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -128,17 +154,12 @@ fun MainScreen(
 }
 
 /**
- * Top App Header according to DESIGN.md Section 5.1:
+ * Top App Header:
  * - Left-aligned screen title in Newsreader Serif ("Pocket Ledger")
- * - Text button "Add entry" in the top bar
  * - Optional offline AI fallback status badge/button
- * - Segmented switch under the title: Transactions | Autopays (text only, underline indicator in accent, no pill fill)
  */
 @Composable
 private fun PocketLedgerHeader(
-    selectedTab: Int,
-    onTabSelect: (Int) -> Unit,
-    onAddEntry: () -> Unit,
     onOpenLlm: () -> Unit,
     llmState: LlmModelState
 ) {
@@ -157,7 +178,7 @@ private fun PocketLedgerHeader(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -167,64 +188,73 @@ private fun PocketLedgerHeader(
                     color = MaterialTheme.colorScheme.onBackground
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TextButton(onClick = onOpenLlm) {
-                        val label = when (llmState) {
-                            LlmModelState.Ready -> "AI Ready"
-                            is LlmModelState.Downloading -> "AI …"
-                            else -> "AI"
-                        }
-                        Text(
-                            text = label,
-                            color = extras.mutedText,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                TextButton(onClick = onOpenLlm) {
+                    val label = when (llmState) {
+                        LlmModelState.Ready -> "AI Ready"
+                        is LlmModelState.Downloading -> "AI …"
+                        else -> "AI"
                     }
-
-                    TextButton(onClick = onAddEntry) {
-                        Text(
-                            text = "Add entry",
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 15.sp
-                        )
-                    }
+                    Text(
+                        text = label,
+                        color = extras.mutedText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-
-            // Underline Segmented Switch: Transactions | Autopays
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(28.dp)
-            ) {
-                TabUnderlineItem(
-                    title = "Transactions",
-                    selected = selectedTab == 0,
-                    onClick = { onTabSelect(0) }
-                )
-                TabUnderlineItem(
-                    title = "Autopays",
-                    selected = selectedTab == 1,
-                    onClick = { onTabSelect(1) }
-                )
-            }
-
+            Spacer(Modifier.height(8.dp))
             HairlineDivider(color = extras.hairline)
         }
     }
 }
 
+/**
+ * Bottom Navigation Bar maintaining the current new design aesthetics.
+ */
 @Composable
-private fun TabUnderlineItem(
+private fun PocketLedgerBottomBar(
+    selectedTab: Int,
+    onTabSelect: (Int) -> Unit
+) {
+    val extras = LocalLedgerExtras.current
+
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column {
+            HairlineDivider(color = extras.hairline)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BottomNavTabItem(
+                    title = "Transactions",
+                    icon = Icons.Filled.List,
+                    selected = selectedTab == 0,
+                    onClick = { onTabSelect(0) }
+                )
+                BottomNavTabItem(
+                    title = "Autopays",
+                    icon = Icons.Filled.Refresh,
+                    selected = selectedTab == 1,
+                    onClick = { onTabSelect(1) }
+                )
+            }
+            HairlineDivider(color = extras.hairline.copy(alpha = 0.5f))
+            PrivacyFooter()
+        }
+    }
+}
+
+@Composable
+private fun BottomNavTabItem(
     title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -234,20 +264,29 @@ private fun TabUnderlineItem(
     Column(
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(bottom = 8.dp)
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.onBackground else extras.mutedText
-        )
-        Spacer(Modifier.height(8.dp))
         Box(
             modifier = Modifier
-                .height(2.dp)
-                .width(if (selected) 48.dp else 0.dp)
+                .height(2.5.dp)
+                .width(if (selected) 36.dp else 0.dp)
                 .background(if (selected) accentColor else androidx.compose.ui.graphics.Color.Transparent)
+        )
+        Spacer(Modifier.height(4.dp))
+        Icon(
+            imageVector = icon,
+            contentDescription = title,
+            tint = if (selected) accentColor else extras.mutedText,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) MaterialTheme.colorScheme.onBackground else extras.mutedText
         )
     }
 }
