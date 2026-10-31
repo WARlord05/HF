@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Expense Tracker</string>
+    <string name="notification_listener_label">Expense Tracker notifications</string>
+</resources>
