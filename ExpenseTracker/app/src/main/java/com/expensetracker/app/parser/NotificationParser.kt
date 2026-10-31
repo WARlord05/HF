@@ -11,21 +11,20 @@ import javax.inject.Singleton
 class NotificationParser @Inject constructor() {
 
     fun parse(text: String, postedAt: Long, sourcePackage: String = ""): ParsedNotification? {
-        val clean = text.replace('\n', ' ').replace(WHITESPACE, " ").trim().take(MAX_TEXT_LENGTH)
+        val clean = sanitize(text)
         if (clean.length < 6) return null
 
         val lower = clean.lowercase()
+        if (OTP_WORDS.containsMatchIn(lower) && !PAYMENT_CUE.containsMatchIn(lower)) return null
         val type = when {
             DEBIT_WORDS.containsMatchIn(lower) -> "DEBIT"
             CREDIT_WORDS.containsMatchIn(lower) -> "CREDIT"
             else -> return null
         }
 
-        val amountMatch = CURRENCY_FIRST.find(clean) ?: AMOUNT_FIRST.find(clean) ?: return null
-        val amount = amountMatch.groupValues[1].replace(",", "").toDoubleOrNull()
-            ?.takeIf { it.isFinite() && it > 0.0 && it < MAX_AMOUNT }
-            ?: return null
-        val currency = detectCurrency(amountMatch.value)
+        val amountMatch = extractAmountFromClean(clean) ?: return null
+        val amount = amountMatch.amount
+        val currency = amountMatch.currency
 
         val withoutAmount = clean.removeRange(amountMatch.range).replace(WHITESPACE, " ").trim()
         val isAutopay = type == "DEBIT" && AUTOPAY_WORDS.containsMatchIn(lower)
@@ -44,6 +43,30 @@ class NotificationParser @Inject constructor() {
             isAutopay = isAutopay,
             billingCycle = if (isAutopay) detectCycle(lower) else "MONTHLY"
         )
+    }
+
+    fun extractAmount(text: String): AmountMatch? = extractAmountFromClean(sanitize(text))
+
+    fun looksLikePayment(text: String): Boolean = PAYMENT_CUE.containsMatchIn(sanitize(text))
+
+    fun accountSource(text: String, sourcePackage: String = ""): String =
+        extractAccount(sanitize(text), sourcePackage)
+
+    fun merchantFor(text: String, type: String): String =
+        extractMerchant(sanitize(text), type)
+
+    fun categoryFor(text: String, merchant: String): String =
+        classify(sanitize(text), merchant)
+
+    private fun sanitize(text: String): String =
+        text.replace('\n', ' ').replace(WHITESPACE, " ").trim().take(MAX_TEXT_LENGTH)
+
+    private fun extractAmountFromClean(clean: String): AmountMatch? {
+        val match = CURRENCY_FIRST.find(clean) ?: AMOUNT_FIRST.find(clean) ?: return null
+        val amount = match.groupValues[1].replace(",", "").toDoubleOrNull()
+            ?.takeIf { it.isFinite() && it > 0.0 && it < MAX_AMOUNT }
+            ?: return null
+        return AmountMatch(amount, detectCurrency(match.value), match.range)
     }
 
     private fun extractMerchant(text: String, type: String): String {
@@ -144,6 +167,12 @@ class NotificationParser @Inject constructor() {
         private val AUTOPAY_WORDS = Regex(
             "(?i)\\b(autopay|auto-pay|auto pay|e-?mandate|mandate|recurring|subscription|renewal|renewed|standing instruction)\\b"
         )
+        private val OTP_WORDS = Regex(
+            "(?i)\\b(otp|one[ -]?time password|verification code|do not share)\\b"
+        )
+        private val PAYMENT_CUE = Regex(
+            "(?i)\\b(debited|credited|paid|sent|spent|charged|withdrawn|deducted|deposited|received|refunded|reversed|transferred|successful|success|completed|done|txn|transaction|auto-?debit)\\b"
+        )
 
         private val CURRENCY_FIRST = Regex(
             "(?i)(?:₹|rs\\.?|inr|usd|eur|gbp|£|€|\\$)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)"
@@ -152,7 +181,7 @@ class NotificationParser @Inject constructor() {
             "(?i)([0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\s*(?:₹|rs\\.?|inr|usd|eur|gbp|£|€|dollars?)"
         )
 
-        private const val MERCHANT_BODY = "([A-Za-z0-9][A-Za-z0-9@&._'\\- ]{1,39}?)"
+        private const val MERCHANT_BODY = "([A-Za-z0-9][A-Za-z0-9@&._'\\-+ ]{1,39}?)"
         private const val MERCHANT_END =
             "(?=\\s+(?:via|using|from|on|for|ref|refno|upi|txn|id|ending|card|a/c|ac|subscription|renewal|autopay|mandate)\\b|[.,;|!]|\\z)"
 

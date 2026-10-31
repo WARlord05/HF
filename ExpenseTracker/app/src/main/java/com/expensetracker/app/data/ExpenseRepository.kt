@@ -1,5 +1,6 @@
 package com.expensetracker.app.data
 
+import com.expensetracker.app.data.llm.LlmFallbackParser
 import com.expensetracker.app.parser.BillingCycle
 import com.expensetracker.app.parser.NotificationParser
 import com.expensetracker.app.parser.ParsedNotification
@@ -13,7 +14,8 @@ import javax.inject.Singleton
 class ExpenseRepository @Inject constructor(
     private val transactionDao: TransactionDao,
     private val autopayDao: AutopayDao,
-    private val parser: NotificationParser
+    private val parser: NotificationParser,
+    private val llmParser: LlmFallbackParser
 ) {
     val transactions: Flow<List<TransactionEntity>> = transactionDao.observeAll()
     val autopays: Flow<List<AutopayEntity>> = autopayDao.observeAll()
@@ -45,8 +47,18 @@ class ExpenseRepository @Inject constructor(
         autopayDao.markStale(now - STALE_GRACE_MS)
 
     suspend fun recordNotification(sourcePackage: String, text: String, postedAt: Long): ParsedNotification? {
-        val parsed = parser.parse(text, postedAt, sourcePackage) ?: return null
-        if (transactionDao.findRecent(parsed.merchantName, parsed.amount, postedAt - DEDUPE_WINDOW_MS) != null) {
+        val parsed = parser.parse(text, postedAt, sourcePackage)
+            ?: parser.extractAmount(text)?.let { amount ->
+                llmParser.parse(text, amount, postedAt, sourcePackage)
+            }
+            ?: return null
+        if (transactionDao.findRecent(
+                merchant = parsed.merchantName,
+                amount = parsed.amount,
+                since = postedAt - DEDUPE_WINDOW_MS,
+                until = postedAt + DEDUPE_WINDOW_MS
+            ) != null
+        ) {
             return null
         }
         val autopayId = if (parsed.isAutopay) upsertAutopay(parsed) else null

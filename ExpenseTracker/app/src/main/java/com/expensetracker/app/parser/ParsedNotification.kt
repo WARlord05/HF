@@ -2,6 +2,12 @@ package com.expensetracker.app.parser
 
 import com.expensetracker.app.data.TransactionEntity
 
+data class AmountMatch(
+    val amount: Double,
+    val currency: String,
+    val range: IntRange
+)
+
 data class ParsedNotification(
     val merchantName: String,
     val amount: Double,

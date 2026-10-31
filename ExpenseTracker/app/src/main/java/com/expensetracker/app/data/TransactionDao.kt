@@ -18,9 +18,9 @@ interface TransactionDao {
 
     @Query(
         "SELECT * FROM transactions WHERE merchantName = :merchant AND amount = :amount " +
-            "AND timestamp >= :since LIMIT 1"
+            "AND timestamp BETWEEN :since AND :until LIMIT 1"
     )
-    suspend fun findRecent(merchant: String, amount: Double, since: Long): TransactionEntity?
+    suspend fun findRecent(merchant: String, amount: Double, since: Long, until: Long): TransactionEntity?
 
     @Insert
     suspend fun insert(transaction: TransactionEntity): Long

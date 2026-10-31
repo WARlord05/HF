@@ -1,6 +1,7 @@
 package com.expensetracker.app.parser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -79,8 +80,39 @@ class NotificationParserTest {
     }
 
     @Test
+    fun parsesDisneyPlusAutopayMerchant() {
+        val parsed = parser.parse(
+            "Autopay of Rs 299.00 executed for Disney+ Hotstar subscription renewal",
+            postedAt = 1_700_000_000_000L
+        )!!
+
+        assertTrue(parsed.isAutopay)
+        assertEquals("Disney+ Hotstar", parsed.merchantName)
+        assertEquals("Entertainment", parsed.category)
+        assertEquals(299.0, parsed.amount, 0.001)
+    }
+
+    @Test
     fun ignoresNonTransactionNotifications() {
         assertNull(parser.parse("Your OTP is 123456", postedAt = 1_700_000_000_000L))
+    }
+
+    @Test
+    fun rejectsOtpWithPaymentWording() {
+        assertNull(
+            parser.parse(
+                "Use OTP 482913 to verify payment of Rs 500",
+                postedAt = 1_700_000_000_000L
+            )
+        )
+    }
+
+    @Test
+    fun paymentCueRejectsOrderUpdates() {
+        assertTrue(parser.looksLikePayment("Txn alert: INR 1,299.00 done at Myntra"))
+        assertTrue(parser.looksLikePayment("Rs 450 debited from A/c"))
+        assertFalse(parser.looksLikePayment("Your order of INR 799 is out for delivery"))
+        assertFalse(parser.looksLikePayment("Order confirmed for INR 999"))
     }
 
     @Test
@@ -88,6 +120,13 @@ class NotificationParserTest {
         val longText = "Paid Rs 99 to TestStore via UPI " + "reminder ".repeat(500)
         val parsed = parser.parse(longText, postedAt = 1_700_000_000_000L)
         assertEquals("TestStore", parsed?.merchantName)
+    }
+
+    @Test
+    fun extractsAmountEvenWithoutTransactionWords() {
+        val amount = parser.extractAmount("Txn alert: INR 1,299.00 done at Myntra")!!
+        assertEquals(1299.0, amount.amount, 0.001)
+        assertEquals("INR", amount.currency)
     }
 
     @Test

@@ -19,8 +19,10 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -42,15 +44,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.expensetracker.app.data.llm.LlmModelManager
+import com.expensetracker.app.data.llm.LlmModelState
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
+    val llmViewModel: LlmViewModel = hiltViewModel()
+    val llmState by llmViewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var showLlmDialog by rememberSaveable { mutableStateOf(false) }
     var notificationAccess by remember { mutableStateOf(NotificationAccess.isGranted(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -70,6 +80,11 @@ fun MainScreen() {
                 TopAppBar(
                     title = {
                         Text("Expense Tracker", fontWeight = FontWeight.SemiBold)
+                    },
+                    actions = {
+                        TextButton(onClick = { showLlmDialog = true }) {
+                            Text("AI")
+                        }
                     }
                 )
                 PrivacyBanner()
@@ -111,6 +126,15 @@ fun MainScreen() {
             }
         }
     }
+
+    if (showLlmDialog) {
+        LlmModelDialog(
+            state = llmState,
+            onDownload = llmViewModel::download,
+            onDelete = llmViewModel::delete,
+            onDismiss = { showLlmDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -130,7 +154,7 @@ private fun PrivacyBanner() {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "All data stays on this device. No servers, no bank logins.",
+                text = "Parsing stays on this device. No servers, no bank logins. The optional AI model downloads once.",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )
@@ -175,4 +199,89 @@ private fun NotificationAccessCard(onEnable: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun LlmModelDialog(
+    state: LlmModelState,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("On-device AI fallback") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Qwen2.5 0.5B can read unusual bank alerts that the normal parser misses. Amounts still come straight from the notification text.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                when (state) {
+                    LlmModelState.Missing -> Text(
+                        text = "Model not downloaded (${LlmModelManager.MODEL_SIZE_LABEL}).",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    is LlmModelState.Downloading -> {
+                        if (state.total > 0) {
+                            LinearProgressIndicator(
+                                progress = {
+                                    (state.downloaded.toFloat() / state.total).coerceIn(0f, 1f)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        Text(
+                            text = "Downloading ${formatBytes(state.downloaded)} of ${
+                                if (state.total > 0) formatBytes(state.total) else "?"
+                            }",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    LlmModelState.Ready -> Text(
+                        text = "Ready. It unloads from memory after a minute of disuse.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    is LlmModelState.Failed -> Text(
+                        text = "Download failed: ${state.message}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            when (state) {
+                LlmModelState.Missing, is LlmModelState.Failed -> TextButton(onClick = onDownload) {
+                    Text("Download")
+                }
+
+                LlmModelState.Ready -> TextButton(onClick = onDelete) {
+                    Text("Remove")
+                }
+
+                is LlmModelState.Downloading -> TextButton(onClick = onDismiss) {
+                    Text("Hide")
+                }
+            }
+        },
+        dismissButton = {
+            if (state !is LlmModelState.Downloading) {
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        }
+    )
+}
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_000_000_000 -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000.0)
+    bytes >= 1_000_000 -> String.format(Locale.US, "%.0f MB", bytes / 1_000_000.0)
+    else -> String.format(Locale.US, "%.0f KB", bytes / 1_000.0)
 }

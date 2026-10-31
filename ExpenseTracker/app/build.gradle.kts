@@ -33,6 +33,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -72,7 +73,10 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.10.5")
 
+    implementation("com.google.mediapipe:tasks-genai:0.10.35")
+
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

@@ -1,5 +1,7 @@
 package com.expensetracker.app.parser
 
+import com.expensetracker.app.BuildConfig
+
 /**
  * Only notifications posted by these packages are read. Packages are matched by exact name,
  * plus a small set of name heuristics for banking apps that are not listed.
@@ -42,7 +44,9 @@ object NotificationSources {
     )
 
     fun isTarget(packageName: String): Boolean =
-        packageName in exactPackages || packageHints.any { packageName.contains(it, ignoreCase = true) }
+        packageName in exactPackages ||
+            (BuildConfig.DEBUG && packageName == "com.android.shell") ||
+            packageHints.any { packageName.contains(it, ignoreCase = true) }
 
     fun labelFor(packageName: String): String =
         labels[packageName] ?: packageName.substringAfterLast('.').replaceFirstChar { it.uppercase() }
