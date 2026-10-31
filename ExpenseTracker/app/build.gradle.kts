@@ -72,7 +72,11 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.10.5")
 
+        implementation("net.zetetic:sqlcipher-android:4.6.1")
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
     testImplementation("junit:junit:4.13.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
+
