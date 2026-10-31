@@ -25,6 +25,12 @@ fun toDate(millis: Long): LocalDate =
 
 fun formatDate(millis: Long): String = shortDateFormatter.format(toDate(millis))
 
+fun formatBytes(bytes: Long): String = when {
+    bytes >= 1_000_000_000 -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000.0)
+    bytes >= 1_000_000 -> String.format(Locale.US, "%.0f MB", bytes / 1_000_000.0)
+    else -> String.format(Locale.US, "%.0f KB", bytes / 1_000.0)
+}
+
 fun formatDayHeader(date: LocalDate): String {
     val today = LocalDate.now()
     return when (date) {

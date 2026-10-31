@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
@@ -51,7 +52,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.expensetracker.app.data.llm.LlmModelManager
 import com.expensetracker.app.data.llm.LlmModelState
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +104,12 @@ fun MainScreen() {
                     icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
                     label = { Text("Autopays") }
                 )
+                NavigationBarItem(
+                    selected = tab == 2,
+                    onClick = { tab = 2 },
+                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                    label = { Text("Settings") }
+                )
             }
         }
     ) { padding ->
@@ -122,7 +128,11 @@ fun MainScreen() {
                 )
             }
             Box(Modifier.weight(1f)) {
-                if (tab == 0) TransactionsRoute() else AutopaysRoute()
+                when (tab) {
+                    0 -> TransactionsRoute()
+                    1 -> AutopaysRoute()
+                    else -> SettingsRoute()
+                }
             }
         }
     }
@@ -278,10 +288,4 @@ private fun LlmModelDialog(
             }
         }
     )
-}
-
-private fun formatBytes(bytes: Long): String = when {
-    bytes >= 1_000_000_000 -> String.format(Locale.US, "%.1f GB", bytes / 1_000_000_000.0)
-    bytes >= 1_000_000 -> String.format(Locale.US, "%.0f MB", bytes / 1_000_000.0)
-    else -> String.format(Locale.US, "%.0f KB", bytes / 1_000.0)
 }

@@ -49,6 +49,7 @@ fun AutopaysRoute(viewModel: AutopaysViewModel = hiltViewModel()) {
         state = state,
         onCancel = viewModel::cancel,
         onReactivate = viewModel::reactivate,
+        onRemove = viewModel::remove,
         historyFor = viewModel::historyFor
     )
 }
@@ -58,6 +59,7 @@ fun AutopaysScreen(
     state: AutopaysUiState,
     onCancel: (AutopayEntity) -> Unit,
     onReactivate: (AutopayEntity) -> Unit,
+    onRemove: (AutopayEntity) -> Unit,
     historyFor: (Long) -> Flow<List<TransactionEntity>>
 ) {
     LazyColumn(
@@ -83,7 +85,8 @@ fun AutopaysScreen(
                     currency = state.currency,
                     history = historyFor(autopay.id),
                     onCancel = { onCancel(autopay) },
-                    onReactivate = { onReactivate(autopay) }
+                    onReactivate = { onReactivate(autopay) },
+                    onRemove = { onRemove(autopay) }
                 )
             }
         }
@@ -146,7 +149,8 @@ private fun AutopayCard(
     currency: String,
     history: Flow<List<TransactionEntity>>,
     onCancel: () -> Unit,
-    onReactivate: () -> Unit
+    onReactivate: () -> Unit,
+    onRemove: () -> Unit
 ) {
     var expanded by rememberSaveable(autopay.id) { mutableStateOf(false) }
     val transactions by remember(autopay.id) { history }
@@ -216,6 +220,9 @@ private fun AutopayCard(
                 if (isCancelled) {
                     TextButton(onClick = onReactivate) {
                         Text("Reactivate")
+                    }
+                    TextButton(onClick = onRemove) {
+                        Text("Remove", color = MaterialTheme.colorScheme.error)
                     }
                 } else {
                     TextButton(onClick = onCancel) {

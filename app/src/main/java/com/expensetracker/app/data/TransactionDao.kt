@@ -22,6 +22,9 @@ interface TransactionDao {
     )
     suspend fun findRecent(merchant: String, amount: Double, since: Long, until: Long): TransactionEntity?
 
+    @Query("UPDATE transactions SET autopayId = NULL WHERE autopayId = :autopayId")
+    suspend fun clearAutopayLink(autopayId: Long)
+
     @Insert
     suspend fun insert(transaction: TransactionEntity): Long
 
@@ -30,4 +33,7 @@ interface TransactionDao {
 
     @Delete
     suspend fun delete(transaction: TransactionEntity)
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
 }

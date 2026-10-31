@@ -258,7 +258,7 @@ The app works without the model. The fallback is used only when:
 | Format | MediaPipe `.task` |
 | Size | 547 MB |
 | File | `filesDir/models/qwen2.5-0.5b-instruct.task` |
-| Source | `https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task?download=true` |
+| Source | `https://github.com/WARlord05/HF/releases/download/model-qwen2.5-0.5b/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task` (mirror of `litert-community/Qwen2.5-0.5B-Instruct` on Hugging Face) |
 | Runtime | `com.google.mediapipe:tasks-genai:0.10.35` |
 
 ### Download manager
@@ -270,9 +270,10 @@ Download behavior:
 - 30-second connect timeout, 60-second read timeout.
 - 256 KB buffer, progress updates every 250 ms.
 - Minimum 100 MB and maximum 700 MB size bounds.
-- Free-space check before starting.
+- Free-space check before starting, adjusted for an existing partial file.
+- Resumes an existing `.part` with a `Range` request; restarts from zero if the server ignores it.
 - Writes to `.part`, validates the ZIP/`PK` magic and minimum size, then renames.
-- Cancellation and failure delete the partial file.
+- Failure keeps `.part` for the next attempt; invalid or rejected partial files are deleted.
 - Remove deletes both the model and any partial file.
 
 ### Inference
@@ -340,7 +341,14 @@ Two bottom-navigation tabs:
 - "Due in 7 days" count and scheduled value.
 - Cards with service, category, cycle, amount, next expected date, last charge, status badge.
 - Expandable last-20-charge history.
-- Cancel and reactivate actions.
+- Cancel and reactivate actions, plus remove (available once cancelled).
+
+### Settings
+
+- Third bottom tab after Transactions and Autopays.
+- `On-device AI` opens a status view: engine Running/Idle, model state, and live app RAM usage
+  (refreshed every 2 seconds; includes the loaded model while running).
+- `Clear all data` deletes every transaction and autopay after a confirmation dialog.
 
 ### App chrome
 
@@ -497,11 +505,12 @@ The debug build was exercised on a OnePlus CPH2707 (Android 16 / API 36):
 - An unusual `done at Croma` alert used the LLM and produced `Croma / INR 1,499 / Shopping`.
 - A Myntra alert used the LLM and produced the correct merchant and amount.
 - "Out for delivery" and "Order confirmed" messages were skipped by the payment-cue gate.
-- The AI dialog reported the model as **Ready** after a manual model push.
+- The model download was exercised end-to-end from the GitHub release: 546,660,344 bytes,
+  matching SHA-256 `E608953F169AEB1BD7B9155FEC2559825E08453FC209B84EDA3A781ED0452FD2`, and the
+  downloaded model parsed `Rs 654 payment completed to Skyline Cafe` as `Skyline Cafe`.
+- An interrupted download resumed from its partial file (`Downloading 304 MB of 547 MB`) and
+  completed with the same SHA-256.
 - Test rows were removed after verification.
-
-The in-app download flow was not exercised end-to-end in that environment; the model was pushed
-manually with adb. The normal user path is the **AI > Download** dialog.
 
 ### adb notification testing
 

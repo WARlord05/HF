@@ -1,6 +1,7 @@
 package com.expensetracker.app.data
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
@@ -23,4 +24,10 @@ interface AutopayDao {
 
     @Query("UPDATE autopays SET status = 'STALE' WHERE status = 'ACTIVE' AND nextExpectedTimestamp < :before")
     suspend fun markStale(before: Long)
+
+    @Delete
+    suspend fun delete(autopay: AutopayEntity)
+
+    @Query("DELETE FROM autopays")
+    suspend fun deleteAll()
 }

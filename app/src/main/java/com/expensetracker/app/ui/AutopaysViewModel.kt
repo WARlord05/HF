@@ -49,6 +49,10 @@ class AutopaysViewModel @Inject constructor(private val repository: ExpenseRepos
         repository.reactivate(autopay)
     }
 
+    fun remove(autopay: AutopayEntity) = viewModelScope.launch {
+        repository.removeAutopay(autopay)
+    }
+
     private companion object {
         const val UPCOMING_WINDOW_MS = 7L * 24 * 60 * 60 * 1000
     }

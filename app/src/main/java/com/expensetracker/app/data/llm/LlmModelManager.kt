@@ -45,7 +45,8 @@ class LlmModelManager @Inject constructor(
 
     fun download() {
         if (downloadJob?.isActive == true || isReady()) return
-        if (context.filesDir.usableSpace < MIN_MODEL_BYTES) {
+        val needed = (MIN_MODEL_BYTES - partFile.length()).coerceAtLeast(0L)
+        if (context.filesDir.usableSpace < needed) {
             _state.value = LlmModelState.Failed("Not enough free storage")
             return
         }
@@ -62,6 +63,11 @@ class LlmModelManager @Inject constructor(
 
     private suspend fun downloadInternal() {
         modelFile.parentFile?.mkdirs()
+        var existing = partFile.length()
+        if (existing > MAX_MODEL_BYTES) {
+            partFile.delete()
+            existing = 0L
+        }
         var connection: HttpURLConnection? = null
         try {
             connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
@@ -69,16 +75,27 @@ class LlmModelManager @Inject constructor(
                 readTimeout = READ_TIMEOUT_MS
                 instanceFollowRedirects = true
                 setRequestProperty("User-Agent", "ExpenseTracker/1.0")
+                // shortcut: resume assumes MODEL_URL never changes; use a new release tag for a new model.
+                if (existing > 0) setRequestProperty("Range", "bytes=$existing-")
             }
             val code = connection.responseCode
+            if (code == HTTP_RANGE_NOT_SATISFIABLE) {
+                partFile.delete()
+                error("Downloaded partial file is not usable, try again")
+            }
             if (code !in 200..299) error("HTTP $code")
-            val total = connection.contentLengthLong
+            if (existing > 0 && code == HttpURLConnection.HTTP_OK) {
+                partFile.delete()
+                existing = 0L
+            }
+            val remaining = connection.contentLengthLong
+            val total = if (remaining >= 0) existing + remaining else -1L
             if (total > MAX_MODEL_BYTES) error("Model file is larger than expected")
 
             connection.inputStream.use { input ->
-                FileOutputStream(partFile).use { output ->
+                FileOutputStream(partFile, existing > 0).use { output ->
                     val buffer = ByteArray(BUFFER_BYTES)
-                    var downloaded = 0L
+                    var downloaded = existing
                     var lastUpdate = 0L
                     while (true) {
                         val read = input.read(buffer)
@@ -96,16 +113,15 @@ class LlmModelManager @Inject constructor(
             }
 
             if (partFile.length() < MIN_MODEL_BYTES || !hasTaskMagic(partFile)) {
+                partFile.delete()
                 error("Downloaded model is incomplete")
             }
             modelFile.delete()
             if (!partFile.renameTo(modelFile)) error("Could not save the model")
             _state.value = LlmModelState.Ready
         } catch (e: CancellationException) {
-            partFile.delete()
             throw e
         } catch (e: Exception) {
-            partFile.delete()
             _state.value = LlmModelState.Failed(e.message ?: "Download failed")
         } finally {
             connection?.disconnect()
@@ -122,10 +138,11 @@ class LlmModelManager @Inject constructor(
 
     companion object {
         private const val MODEL_URL =
-            "https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct/resolve/main/" +
-                "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task?download=true"
+            "https://github.com/WARlord05/HF/releases/download/model-qwen2.5-0.5b/" +
+                "Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
         private const val MIN_MODEL_BYTES = 100L * 1024 * 1024
         private const val MAX_MODEL_BYTES = 700L * 1024 * 1024
+        private const val HTTP_RANGE_NOT_SATISFIABLE = 416
         private const val CONNECT_TIMEOUT_MS = 30_000
         private const val READ_TIMEOUT_MS = 60_000
         private const val BUFFER_BYTES = 256 * 1024

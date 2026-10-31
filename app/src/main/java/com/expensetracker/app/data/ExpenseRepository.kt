@@ -32,6 +32,16 @@ class ExpenseRepository @Inject constructor(
     suspend fun setAutopayStatus(autopay: AutopayEntity, status: String) =
         autopayDao.update(autopay.copy(status = status))
 
+    suspend fun removeAutopay(autopay: AutopayEntity) {
+        transactionDao.clearAutopayLink(autopay.id)
+        autopayDao.delete(autopay)
+    }
+
+    suspend fun clearAll() {
+        transactionDao.deleteAll()
+        autopayDao.deleteAll()
+    }
+
     suspend fun reactivate(autopay: AutopayEntity) =
         autopayDao.update(
             autopay.copy(

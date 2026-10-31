@@ -17,6 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,6 +36,9 @@ class LlmFallbackParser @Inject constructor(
     private var engine: LlmInference? = null
     private var idleJob: Job? = null
     private var nextLoadAttemptAt = 0L
+
+    private val _running = MutableStateFlow(false)
+    val running: StateFlow<Boolean> = _running.asStateFlow()
 
     suspend fun parse(
         text: String,
@@ -93,7 +99,10 @@ class LlmFallbackParser @Inject constructor(
         }.onFailure {
             nextLoadAttemptAt = now + LOAD_RETRY_MS
             Log.w(TAG, "Could not load on-device model", it)
-        }.getOrNull()?.also { engine = it }
+        }.getOrNull()?.also {
+            engine = it
+            _running.value = true
+        }
     }
 
     private fun generate(inference: LlmInference, prompt: String): String =
@@ -116,6 +125,7 @@ class LlmFallbackParser @Inject constructor(
             mutex.withLock {
                 engine?.close()
                 engine = null
+                _running.value = false
             }
         }
     }
