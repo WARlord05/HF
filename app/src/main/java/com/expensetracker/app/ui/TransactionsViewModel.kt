@@ -14,9 +14,9 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 enum class DateRange(val label: String) {
-    ALL("All time"),
     THIS_MONTH("This month"),
-    LAST_30("Last 30 days")
+    LAST_30("Last 30 days"),
+    ALL("All time")
 }
 
 data class DayGroup(
@@ -30,9 +30,10 @@ data class TransactionsUiState(
     val categories: List<String> = emptyList(),
     val query: String = "",
     val category: String? = null,
-    val range: DateRange = DateRange.ALL,
+    val range: DateRange = DateRange.THIS_MONTH,
     val spent: Double = 0.0,
-    val currency: String = "USD",
+    val received: Double = 0.0,
+    val currency: String = defaultCurrencyCode(),
     val count: Int = 0
 )
 
@@ -41,7 +42,7 @@ class TransactionsViewModel @Inject constructor(private val repository: ExpenseR
 
     private val query = MutableStateFlow("")
     private val category = MutableStateFlow<String?>(null)
-    private val range = MutableStateFlow(DateRange.ALL)
+    private val range = MutableStateFlow(DateRange.THIS_MONTH)
 
     val uiState = combine(repository.transactions, query, category, range) { all, q, c, r ->
         val now = LocalDate.now()
@@ -52,7 +53,7 @@ class TransactionsViewModel @Inject constructor(private val repository: ExpenseR
                 transaction.category,
                 transaction.accountSource
             ).any { it.contains(q, ignoreCase = true) }
-            val matchesCategory = c == null || transaction.category == c
+            val matchesCategory = c == null || transaction.category.equals(c, ignoreCase = true)
             val matchesRange = when (r) {
                 DateRange.ALL -> true
                 DateRange.THIS_MONTH -> date.year == now.year && date.month == now.month
@@ -70,14 +71,18 @@ class TransactionsViewModel @Inject constructor(private val repository: ExpenseR
                     spent = items.filter { it.transactionType == "DEBIT" }.sumOf { it.amount }
                 )
             }
+        val spentSum = filtered.filter { it.transactionType == "DEBIT" }.sumOf { it.amount }
+        val receivedSum = filtered.filter { it.transactionType == "CREDIT" }.sumOf { it.amount }
+
         TransactionsUiState(
             groups = groups,
             categories = all.map { it.category }.distinct().sorted(),
             query = q,
             category = c,
             range = r,
-            spent = filtered.filter { it.transactionType == "DEBIT" }.sumOf { it.amount },
-            currency = all.firstOrNull()?.currency ?: "USD",
+            spent = spentSum,
+            received = receivedSum,
+            currency = all.firstOrNull()?.currency ?: defaultCurrencyCode(),
             count = filtered.size
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TransactionsUiState())

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pocket Ledger — Automated Expense & Subscription Tracker</title>
+  <meta name="description" content="A human-crafted, warm paper ledger for automated expense and subscription tracking.">
+  <!-- Google Fonts: Newsreader (editorial serif for totals/titles) and Inter (clean UI/sans) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="paper">
+
+  <div class="workspace-banner">
+    <div class="banner-left">
+      <span class="brand-badge">THE POCKET LEDGER</span>
+      <span class="spec-label">Live Interactive UI Spec (DESIGN.md)</span>
+    </div>
+    <div class="banner-controls">
+      <button id="themeToggleBtn" class="control-btn" title="Toggle Light/Dark Theme">
+        <span class="theme-icon">◐</span> <span id="themeLabel">Ink Theme</span>
+      </button>
+      <button id="simulateSmsBtn" class="control-btn action-highlight" title="Simulate incoming bank SMS notification">
+        <span>+ Simulate Bank SMS</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Screen Container -->
+  <main class="device-viewport">
+    <div class="phone-frame">
+
+      <!-- App Header -->
+      <header class="app-header">
+        <div class="header-top">
+          <h1 class="app-title">Pocket Ledger</h1>
+          <button id="openAddEntryBtn" class="btn-text-action" aria-label="Add entry">Add entry</button>
+        </div>
+
+        <!-- Segmented Tab Underline Switch: Transactions | Autopays -->
+        <nav class="segmented-switch" aria-label="Main Navigation">
+          <button id="tabTransactions" class="tab-btn active" role="tab" aria-selected="true">
+            <span>Transactions</span>
+            <div class="tab-underline"></div>
+          </button>
+          <button id="tabAutopays" class="tab-btn" role="tab" aria-selected="false">
+            <span>Autopays</span>
+            <div class="tab-underline"></div>
+          </button>
+        </nav>
+        <div class="hairline"></div>
+      </header>
+
+      <!-- App Content Area -->
+      <div class="screen-content">
+
+        <!-- Notification Access Alert (Quiet, hairline) -->
+        <div id="notificationBanner" class="quiet-alert-banner">
+          <div class="alert-info">
+            <span class="alert-title">Notification access inactive</span>
+            <span class="alert-desc">Enable access to log payments automatically from SMS & bank alerts.</span>
+          </div>
+          <button id="enableNotificationBtn" class="alert-btn">Enable</button>
+        </div>
+
+        <!-- VIEW A: TRANSACTIONS SCREEN -->
+        <section id="viewTransactions" class="view-panel active" aria-label="Transactions View">
+          <!-- Month Summary Header -->
+          <div class="month-header">
+            <div class="month-name" id="currentMonthLabel">OCTOBER 2026</div>
+            <div class="month-stats" id="monthStatsLabel">Spent ₹42,310 · Received ₹60,000</div>
+          </div>
+
+          <!-- Search & Filters -->
+          <div class="filters-container">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="searchInput" placeholder="Search merchant, account, category..." autocomplete="off">
+            </div>
+
+            <!-- Date Range Filter Chips -->
+            <div class="chips-scroll-row" id="dateFilterRow">
+              <button class="chip active" data-range="this_month">This month</button>
+              <button class="chip" data-range="last_30">Last 30 days</button>
+              <button class="chip" data-range="all">All time</button>
+            </div>
+
+            <!-- Category Filter Chips -->
+            <div class="chips-scroll-row" id="categoryFilterRow">
+              <button class="chip active" data-category="ALL">All Categories</button>
+              <button class="chip" data-category="Food">Food</button>
+              <button class="chip" data-category="Shopping">Shopping</button>
+              <button class="chip" data-category="Travel">Travel</button>
+              <button class="chip" data-category="Utility">Utility</button>
+              <button class="chip" data-category="Subscriptions">Subscriptions</button>
+            </div>
+            <div class="hairline"></div>
+          </div>
+
+          <!-- Transactions Timeline (Grouped by Day) -->
+          <div id="transactionsTimeline" class="timeline-container">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+        </section>
+
+        <!-- VIEW B: AUTOPAYS SCREEN -->
+        <section id="viewAutopays" class="view-panel" aria-label="Autopays View">
+          <!-- Summary Block (Flat, Hairline-bordered) -->
+          <div class="summary-block">
+            <div class="section-label">MONTHLY COMMITMENT</div>
+            <div class="summary-total" id="autopayMonthlyTotal">₹7,489</div>
+            <div class="summary-divider hairline"></div>
+            <div class="summary-stats-row">
+              <span id="autopayUpcomingStat">Upcoming 3 debits · ₹2,198</span>
+              <span id="autopayActiveStat">Active 8</span>
+            </div>
+          </div>
+
+          <!-- Autopay Groups -->
+          <div class="autopay-groups-container">
+            <!-- Group 1: Upcoming (next 7 days) -->
+            <div class="autopay-group">
+              <div class="group-header section-label">UPCOMING (NEXT 7 DAYS)</div>
+              <div id="upcomingAutopaysList" class="autopays-list"></div>
+            </div>
+
+            <!-- Group 2: Active -->
+            <div class="autopay-group">
+              <div class="group-header section-label">ACTIVE SUBSCRIPTIONS</div>
+              <div id="activeAutopaysList" class="autopays-list"></div>
+            </div>
+
+            <!-- Group 3: Stale / Cancelled (55% opacity) -->
+            <div class="autopay-group cancelled-group">
+              <div class="group-header section-label">STALE / CANCELLED</div>
+              <div id="cancelledAutopaysList" class="autopays-list"></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Slim Privacy Footer -->
+      <footer class="app-footer">
+        <div class="hairline"></div>
+        <p class="privacy-note">Stored on this device only · No servers, no bank logins</p>
+      </footer>
+
+      <!-- Toast / Snackbar notification -->
+      <div id="toastNotification" class="toast-snackbar" role="alert" aria-live="polite"></div>
+
+    </div>
+  </main>
+
+  <!-- MODAL 1: ADD / EDIT ENTRY BOTTOM SHEET -->
+  <div id="entrySheetModal" class="modal-backdrop" aria-hidden="true">
+    <div class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <h2 id="sheetTitle" class="sheet-title">New entry</h2>
+        <button id="closeEntrySheetBtn" class="btn-text-muted">Cancel</button>
+      </div>
+
+      <form id="entryForm" class="sheet-form">
+        <!-- Type Toggle Switch -->
+        <div class="type-segmented-control">
+          <button type="button" id="btnTypeDebit" class="type-btn active" data-type="DEBIT">Debit (Expense)</button>
+          <button type="button" id="btnTypeCredit" class="type-btn" data-type="CREDIT">Credit (Income)</button>
+        </div>
+
+        <!-- Big Display Amount Input -->
+        <div class="form-group amount-group">
+          <label for="inputAmount" class="section-label">AMOUNT (₹)</label>
+          <input type="number" id="inputAmount" class="amount-input" step="any" placeholder="0.00" required autofocus>
+        </div>
+
+        <!-- Merchant / Description Input -->
+        <div class="form-group">
+          <label for="inputMerchant" class="section-label">MERCHANT / DESCRIPTION</label>
+          <input type="text" id="inputMerchant" class="text-input" placeholder="e.g. Swiggy, Metro, Netflix" required>
+        </div>
+
+        <!-- Category Picker Chips -->
+        <div class="form-group">
+          <label class="section-label">CATEGORY</label>
+          <div class="category-chips-grid" id="sheetCategoryPicker">
+            <button type="button" class="cat-chip active" data-category="Food">Food</button>
+            <button type="button" class="cat-chip" data-category="Shopping">Shopping</button>
+            <button type="button" class="cat-chip" data-category="Travel">Travel</button>
+            <button type="button" class="cat-chip" data-category="Utility">Utility</button>
+            <button type="button" class="cat-chip" data-category="Subscriptions">Subscriptions</button>
+            <button type="button" class="cat-chip" data-category="Other">Other</button>
+          </div>
+        </div>
+
+        <!-- Account / Source Input -->
+        <div class="form-group">
+          <label for="inputAccount" class="section-label">ACCOUNT / SOURCE</label>
+          <input type="text" id="inputAccount" class="text-input" placeholder="Cash, HDFC ••4091, UPI" value="Cash">
+        </div>
+
+        <div class="sheet-actions">
+          <button type="button" id="btnDeleteEntry" class="btn-danger-outline hidden">Delete</button>
+          <button type="submit" id="btnSaveEntry" class="btn-primary">Save entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: TRANSACTION DETAIL BOTTOM SHEET -->
+  <div id="detailSheetModal" class="modal-backdrop" aria-hidden="true">
+    <div class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="detailMerchant">
+      <div class="sheet-drag-handle"></div>
+      <div class="detail-header">
+        <div id="detailMonogram" class="monogram-circle">SW</div>
+        <div class="detail-title-col">
+          <h2 id="detailMerchant" class="detail-merchant">Swiggy</h2>
+          <span id="detailTimestamp" class="detail-timestamp">28 Oct 2026 · 1:42 PM</span>
+        </div>
+        <button id="closeDetailSheetBtn" class="btn-text-muted">Close</button>
+      </div>
+
+      <div class="detail-amount-block">
+        <span class="section-label" id="detailTypeLabel">AMOUNT DEBITED</span>
+        <div id="detailAmount" class="detail-display-amount">−₹349.00</div>
+      </div>
+
+      <div class="hairline"></div>
+
+      <div class="detail-rows-list">
+        <div class="detail-row">
+          <span class="row-label">Category</span>
+          <span id="detailCategory" class="row-val">Food</span>
+        </div>
+        <div class="detail-row">
+          <span class="row-label">Account / source</span>
+          <span id="detailAccount" class="row-val">HDFC Card ••4091</span>
+        </div>
+        <div class="detail-row">
+          <span class="row-label">Type</span>
+          <span id="detailType" class="row-val">Debit</span>
+        </div>
+        <div id="detailAutopayRow" class="detail-row hidden">
+          <span class="row-label">Recurring</span>
+          <span class="row-val highlight-green">Autopay Mandate</span>
+        </div>
+      </div>
+
+      <!-- Collapsible Notification Source (Transparency) -->
+      <div id="detailSourceBlock" class="detail-source-disclosure">
+        <div class="hairline"></div>
+        <div class="disclosure-header" id="toggleSourceDisclosure">
+          <span class="section-label">NOTIFICATION SOURCE</span>
+          <button type="button" class="btn-disclosure" id="btnDisclosureToggle">Show</button>
+        </div>
+        <div id="rawSourceContent" class="raw-source-box hidden">
+          <code id="rawSourceText">HDFC Bank: Rs 349.00 spent on your card xx4091 at SWIGGY on 28-OCT-26 13:42:10. Bal: Rs 42,910.00</code>
+        </div>
+      </div>
+
+      <div class="sheet-actions">
+        <button type="button" id="btnDeleteFromDetail" class="btn-danger-outline">Delete</button>
+        <button type="button" id="btnEditFromDetail" class="btn-primary">Edit entry</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

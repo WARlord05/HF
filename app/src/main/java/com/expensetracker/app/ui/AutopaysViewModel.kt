@@ -20,7 +20,8 @@ data class AutopaysUiState(
     val monthlyTotal: Double = 0.0,
     val upcomingCount: Int = 0,
     val upcomingTotal: Double = 0.0,
-    val currency: String = "USD"
+    val activeCount: Int = 0,
+    val currency: String = defaultCurrencyCode()
 )
 
 @HiltViewModel
@@ -35,7 +36,8 @@ class AutopaysViewModel @Inject constructor(private val repository: ExpenseRepos
             monthlyTotal = active.sumOf { BillingCycle.monthlyEquivalent(it.estimatedAmount, it.billingCycle) },
             upcomingCount = upcoming.size,
             upcomingTotal = upcoming.sumOf { it.estimatedAmount },
-            currency = transactions.firstOrNull()?.currency ?: "USD"
+            activeCount = active.size,
+            currency = transactions.firstOrNull()?.currency ?: defaultCurrencyCode()
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AutopaysUiState())
 
