@@ -355,7 +355,7 @@ Two bottom-navigation tabs:
 ## Project structure
 
 ```text
-ExpenseTracker/
+repo-root/
 ├── build.gradle.kts                 Root plugin versions
 ├── settings.gradle.kts              Repositories and :app include
 ├── gradle.properties                AndroidX, JVM args
