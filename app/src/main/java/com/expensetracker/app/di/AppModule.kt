@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.expensetracker.app.data.AppDatabase
 import com.expensetracker.app.data.AutopayDao
 import com.expensetracker.app.data.DatabaseKeyManager
+import com.expensetracker.app.data.PlaintextDatabaseMigrator
 import com.expensetracker.app.data.TransactionDao
 import dagger.Module
 import dagger.Provides
@@ -33,9 +34,12 @@ object AppModule {
         System.loadLibrary("sqlcipher")
         val passphrase = keyManager.getOrCreatePassphrase()
         val factory = SupportOpenHelperFactory(passphrase)
+        val migrator = PlaintextDatabaseMigrator(context)
+        migrator.prepare()
 
         return Room.databaseBuilder(context, AppDatabase::class.java, "expense-tracker.db")
             .openHelperFactory(factory)
+            .addCallback(migrator)
             .build()
     }
 
